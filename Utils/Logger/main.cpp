@@ -1,5 +1,5 @@
 #include "clsLogger.hpp"
-#include "../common/struct.hpp"
+#include "../../common/struct.hpp"
 
 void LogInfo(int thred_id)
 {

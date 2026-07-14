@@ -14,7 +14,7 @@
 #include <thread>
 
 #include "../RingBuffer/clsQueue.hpp"
-#include "../common/struct.hpp"
+#include "../../common/struct.hpp"
 
 class Logger
 {
@@ -41,7 +41,7 @@ class Logger
 
         static Logger  m_pLogInstance ;
 
-        int         m_iLogLevel{eLogLevel::DEBUG};
+        eLogLevel   m_iLogLevel{eLogLevel::DEBUG};
         bool        m_bEnableTimeStamp {false};
         std::ofstream m_logFile;
         std::mutex m_logLock;
