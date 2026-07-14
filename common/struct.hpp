@@ -8,9 +8,32 @@
 */
 
 //Defines log level used by logger
-enum eLogLevel
+enum class eLogLevel
 {
     DEBUG,
     WARN,
     INFO
+};
+
+//Client events
+enum class eClientEvent
+{
+    SUBSCRIBE,
+    UNSUBSCRIBE,
+    SNAPSHOT
+};
+
+enum class eAction
+{
+    ADD,
+    MODIFY,
+    DELETE,
+    TRADE
+};
+
+//Price level for L2 book levels
+struct stPriceLevel
+{
+    double price,
+    uint32_t  qut,
 };
