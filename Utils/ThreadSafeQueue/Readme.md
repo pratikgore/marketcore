@@ -1,3 +1,6 @@
 #Build commands 
 
-g++ -std=c++17 -Iincludes -pthread main.cpp -o thread_safe_queue
+//From marketcore root
+
+cmake -S Utils -B build/utils -DCMAKE_BUILD_TYPE=Release
+cmake --build build/utils -j

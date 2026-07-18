@@ -1,5 +1,7 @@
 #pragma once    
 
+#include <cstdint>
+
 /*
 * @brief Defines all common enums and structures used for utilties
 *
@@ -8,6 +10,7 @@
 */
 
 //Defines log level used by logger
+enum class eLogLevel
 enum class eLogLevel
 {
     DEBUG,
@@ -34,6 +37,6 @@ enum class eAction
 //Price level for L2 book levels
 struct stPriceLevel
 {
-    double price,
-    uint32_t  qut,
+    double price;
+    uint32_t qty;
 };
