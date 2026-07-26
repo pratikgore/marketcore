@@ -11,7 +11,6 @@
 
 //Defines log level used by logger
 enum class eLogLevel
-enum class eLogLevel
 {
     DEBUG,
     WARN,

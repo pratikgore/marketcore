@@ -16,5 +16,9 @@ find_package(Threads REQUIRED)
 
 add_executable(ringbuffer_exe ${SOURCE_FILES})
 target_include_directories(ringbuffer_exe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_compile_options(ringbuffer_exe PRIVATE -O2)
-target_link_libraries(ringbuffer_exe PRIVATE Threads::Threads)
+target_compile_options(ringbuffer_exe PRIVATE
+    $<$<CONFIG:Debug>:-O0 -g3 -fno-omit-frame-pointer>
+    $<$<CONFIG:RelWithDebInfo>:-O2 -g>
+    $<$<CONFIG:Release>:-O3>
+)
+target_link_libraries(ringbuffer_exe PRIVATE logger_lib Threads::Threads)

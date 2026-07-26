@@ -9,16 +9,16 @@
 
 #include <atomic>
 #include <cstddef>
-#include <memory>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 template<typename T>
 class Queue
 {
 public:
     explicit Queue(std::size_t capacity)
-        : m_capacity(capacity + 1), m_data(std::make_unique<T[]>(m_capacity))
+        : m_capacity(capacity + 1), m_data(m_capacity)
     {
         if (capacity == 0)
         {
@@ -105,7 +105,7 @@ public:
 
 private:
     const std::size_t m_capacity;
-    std::unique_ptr<T[]> m_data;
-    std::atomic<std::size_t> m_front{0};
-    std::atomic<std::size_t> m_back{0};
+    std::vector<T> m_data;
+    std::atomic<std::size_t> m_front{0}; //for dequeue
+    std::atomic<std::size_t> m_back{0};  //for enqueue
 };

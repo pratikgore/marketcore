@@ -1,3 +1,10 @@
+cmake -S Utils -B build/utils -DCMAKE_BUILD_TYPE=Release
+cmake --build build/utils -j
+
+cd /home/pgore/workspace/marketcore/Utils
+cmake --preset debug
+cmake --build --preset debug -j
+
 # Queue Utilities Context
 
 This file provides quick project context for the two queue implementations under `Utils/`:

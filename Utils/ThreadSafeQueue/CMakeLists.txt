@@ -18,5 +18,9 @@ add_executable(thread_safe_queue_exe ${SOURCE_FILES})
 target_include_directories(thread_safe_queue_exe PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/includes
 )
-target_compile_options(thread_safe_queue_exe PRIVATE -O2)
+target_compile_options(thread_safe_queue_exe PRIVATE
+    $<$<CONFIG:Debug>:-O0 -g3 -fno-omit-frame-pointer>
+    $<$<CONFIG:RelWithDebInfo>:-O2 -g>
+    $<$<CONFIG:Release>:-O3>
+)
 target_link_libraries(thread_safe_queue_exe PRIVATE Threads::Threads)
