@@ -27,6 +27,7 @@ struct Tick
     int bid{0};
     int ask{0};
     int ltp{0};
+    double vol{0}; 
     std::uint64_t timeStamp{0};
 
     Tick() = default;
