@@ -1,3 +1,5 @@
 {
-    "cmake.sourceDirectory": "/home/pgore/workspace/marketcore/Utils"
+    "cmake.sourceDirectory": "/home/pgore/workspace/marketcore",
+    "git.openDiffOnClick": true,
+    "diffEditor.renderSideBySide": true
 }

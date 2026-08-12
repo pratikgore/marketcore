@@ -1,23 +1,23 @@
-#include "includes/clsRESTBNConnect.hpp"
+#include "includes/clsRESTBNConnector.hpp"
 
-clsRESTBNConnect::clsRESTBNConnect()
+clsRESTBNConnector::clsRESTBNConnector()
 {
 
 }
 
-clsRESTBNConnect::~clsRESTBNConnect()
+clsRESTBNConnector::~clsRESTBNConnector()
 {
 
 }
 
 //curl writecallback, should be static as per curl 
-size_t clsRESTBNConnect::WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp)
+size_t clsRESTBNConnector::WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp)
 {
     userp->append((char*)contents, size * nmemb);
     return size * nmemb;
 }
 
-std::string clsRESTBNConnect::FetchOrderBook(const std::string& symbol, int limit)
+std::string clsRESTBNConnector::FetchOrderBook(const std::string& symbol, int limit)
 {
     CURL* curl = curl_easy_init();
     if(!curl) 

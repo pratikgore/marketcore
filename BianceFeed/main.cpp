@@ -4,8 +4,8 @@
 
 #include "../Utils/Logger/clsLogger.hpp"
 #include "../Utils/RingBuffer/clsQueue.hpp"
-#include "includes/clsRESTBNConnect.hpp"
-#include "includes/clsWSBNConnect.hpp"
+#include "includes/clsRESTBNConnector.hpp"
+#include "includes/clsWSBNConnector.hpp"
 
 
 int main()
@@ -16,11 +16,14 @@ int main()
     //     std::cerr << "Failed launch logger " << std::endl;
     // }
 
+    std::vector<std::string>sym {"abc"};
     std::string symbol = "SOLUSDT";
-    clsRESTBNConnect objConnect;
+    clsRESTBNConnector objConnect;
 
-    clsWSBNConnect obj;
-    obj.HandleSession();
+    clsWSBNConnector obj;
+    obj.CreateSession();
+    obj.Subscribe(sym);
+    obj.ReadFeed();
 
     while(true)
     {

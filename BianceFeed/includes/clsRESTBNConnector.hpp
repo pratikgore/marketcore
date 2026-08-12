@@ -1,8 +1,8 @@
 /**
- * @file clsRESTBNConnect.hpp
+ * @file clsRESTBNConnector.hpp
  * @brief Connector for Binance API
  * @author Pratik Gore
- * @date 2024
+ * @date 2026
  */
 #pragma once
 
@@ -11,11 +11,11 @@
 #include <curl/curl.h>
 #include <string>
 
-class clsRESTBNConnect
+class clsRESTBNConnector
 {   
     public:
-        clsRESTBNConnect();
-        ~clsRESTBNConnect();
+        clsRESTBNConnector();
+        ~clsRESTBNConnector();
 
         static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp);
         std::string FetchOrderBook(const std::string& symbol, int limit = 20);

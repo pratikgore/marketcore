@@ -9,8 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF) #Compiler extensions
 
 set(SOURCE_FILES
-    clsRESTBNConnect.cpp
-    clsWSBNConnect.cpp
+    clsRESTBNConnector.cpp
+    clsWSBNConnector.cpp
     main.cpp
 )
 
