@@ -10,8 +10,8 @@
 
 #include "clsQueue.hpp"
 // #include "../Logger/clsLogger.hpp"
-#include "../../common/CommonFunc.hpp"
-#include "../../common/struct.hpp"
+#include "CommonFunc.hpp"
+#include "struct.hpp"
 
 std::atomic<bool> startRun = false;
 std::size_t qSize = 128;

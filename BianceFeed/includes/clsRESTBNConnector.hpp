@@ -18,8 +18,17 @@ class clsRESTBNConnector
         ~clsRESTBNConnector();
 
         static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp);
-        std::string FetchOrderBook(const std::string& symbol, int limit = 20);
+        void CreateSession();
+        std::string FetchSnapShot(const std::string& symbol, int limit = 20);
 
 
     private:
+        std::string m_strURL {"https://api.binance.com/api/v3/depth?symbol="};
+        std::string m_strReadBuffer{};
+        int m_iLimit {20};
+        
+
+        CURLcode res{CURLE_OK};
+        CURL* m_ptrCurl {nullptr};
+
 };  

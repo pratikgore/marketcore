@@ -1,4 +1,4 @@
-#include "includes/clsRESTBNConnector.hpp"
+#include "clsRESTBNConnector.hpp"
 
 clsRESTBNConnector::clsRESTBNConnector()
 {
@@ -7,7 +7,7 @@ clsRESTBNConnector::clsRESTBNConnector()
 
 clsRESTBNConnector::~clsRESTBNConnector()
 {
-
+    curl_easy_cleanup(m_ptrCurl);
 }
 
 //curl writecallback, should be static as per curl 
@@ -17,34 +17,35 @@ size_t clsRESTBNConnector::WriteCallback(void* contents, size_t size, size_t nme
     return size * nmemb;
 }
 
-std::string clsRESTBNConnector::FetchOrderBook(const std::string& symbol, int limit)
+void clsRESTBNConnector::CreateSession()
 {
-    CURL* curl = curl_easy_init();
-    if(!curl) 
+    m_ptrCurl = curl_easy_init();
+    if(!m_ptrCurl) 
     {
         std::cerr << "Failed to initialize curl" << std::endl;
         throw std::runtime_error("Failed to initialize curl.");
     }
+    curl_easy_setopt(m_ptrCurl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(m_ptrCurl, CURLOPT_WRITEDATA, &m_strReadBuffer);
+    curl_easy_setopt(m_ptrCurl, CURLOPT_TIMEOUT, 10L);
+    curl_easy_setopt(m_ptrCurl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(m_ptrCurl, CURLOPT_SSL_VERIFYHOST, 2L);
 
-    CURLcode res;
-    std::string readBuffer;
-    std::string url = "https://api.binance.com/api/v3/depth?symbol=" + symbol + "&limit=" + std::to_string(limit);
+}
 
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+std::string clsRESTBNConnector::FetchSnapShot(const std::string& symbol, int limit)
+{
+    m_strReadBuffer.clear();
+    
+    std::string url = m_strURL + symbol + "&limit=" + std::to_string(m_iLimit);
 
-    res = curl_easy_perform(curl);
+    curl_easy_setopt(m_ptrCurl, CURLOPT_URL, url.c_str());
+
+    res = curl_easy_perform(m_ptrCurl);
 
     if (res != CURLE_OK) 
     {
         std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
     }
-
-    curl_easy_cleanup(curl);
-
-    return readBuffer;
+    return m_strReadBuffer;
 }

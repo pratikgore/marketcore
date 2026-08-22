@@ -20,7 +20,10 @@ find_package(OpenSSL REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system)
 
 add_executable(biance_adapt_exe ${SOURCE_FILES})
-target_include_directories(biance_adapt_exe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(biance_adapt_exe PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/third_party
+)
 target_compile_options(biance_adapt_exe PRIVATE
     $<$<CONFIG:Debug>:-O0 -g3 -fno-omit-frame-pointer>
     $<$<CONFIG:RelWithDebInfo>:-O2 -g>

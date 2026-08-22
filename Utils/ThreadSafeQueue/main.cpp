@@ -1,4 +1,4 @@
-#include "clsQueue.hpp"
+#include "ThQueue.hpp"
 
 #include <thread>
 #include <string>
@@ -6,7 +6,7 @@
 
 int main()
 {
-    queue<std::string> q1;
+    ThQueue<std::string> q1;
 
     std::thread t1([&](){
 

@@ -13,8 +13,8 @@
 #include <atomic>
 #include <thread>
 
-#include "../RingBuffer/clsQueue.hpp"
-#include "../../common/struct.hpp"
+#include "clsQueue.hpp"
+#include "struct.hpp"
 
 class Logger
 {
