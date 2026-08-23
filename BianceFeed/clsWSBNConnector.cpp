@@ -1,11 +1,72 @@
 
 #include "clsWSBNConnector.hpp"
 #include "ErrorCode.hpp"
+#include "clsFeedCommunicator.hpp"
+#include "BianceJsonParser.hpp"
+
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 
-clsWSBNConnector::clsWSBNConnector() {}
-clsWSBNConnector::~clsWSBNConnector() {}
+clsWSBNConnector::clsWSBNConnector(clsFeedCommunicator* communicator) 
+{
+    m_communicator = communicator;
+    m_current_symbol = "";  // Initialize empty subscription
+}
+clsWSBNConnector::~clsWSBNConnector()
+{
+    Stop();
+}
+
+void clsWSBNConnector::Init()
+{
+    CreateSessionSnap(); 
+    CreateSessionDepth();
+    m_running = true;
+    m_stopped = false;
+    
+    // Start reader thread (continuous WebSocket reads)
+    m_SnapReaderThread = std::thread(&clsWSBNConnector::SnapshotReaderThread, this);
+    
+    // Start subscription thread (command handling)
+    m_SnapThread = std::thread(&clsWSBNConnector::SnapshotThreadLoop, this);
+}
+
+void clsWSBNConnector::Stop()
+{
+    if (m_stopped.exchange(true))
+    {
+        return;
+    }
+
+    m_running = false;
+
+    // Join command thread first to prevent concurrent writes during close.
+    if (m_SnapThread.joinable())
+    {
+        m_SnapThread.join();
+    }
+
+    // Cancel/close transport so blocking reads unwind without cross-thread websocket::close.
+    if (m_ptSnapWSession)
+    {
+        beast::error_code ec;
+        beast::get_lowest_layer(*m_ptSnapWSession).cancel(ec);
+        beast::get_lowest_layer(*m_ptSnapWSession).close(ec);
+    }
+
+    if (m_ptWSession)
+    {
+        beast::error_code ec;
+        beast::get_lowest_layer(*m_ptWSession).cancel(ec);
+        beast::get_lowest_layer(*m_ptWSession).close(ec);
+    }
+
+    if (m_SnapReaderThread.joinable())
+    {
+        m_SnapReaderThread.join();
+    }
+}
 
 long clsWSBNConnector::CreateSessionDepth()
 {
@@ -145,23 +206,130 @@ void clsWSBNConnector::SubscribeSnap(std::string & symbols)
 
     std::cout << "Snapshot request : " << request << std::endl;
 
+    if (!m_ptSnapWSession)
+    {
+        std::cerr << "Error: WebSocket session is null!" << std::endl;
+        return;
+    }
     m_ptSnapWSession->write(net::buffer(request));
+
+    std::cout << "Request sent " << std::endl;
 }
 
-void clsWSBNConnector::ReadSnap()
+void clsWSBNConnector::ReadSnap(beast::flat_buffer& buffer)
 {
-    std::cout << "Reading WS snapshot response ..." << std::endl;
-    beast::flat_buffer buffer;
-    m_ptSnapWSession->read(buffer);
+    try
+    {
+        if (!m_ptSnapWSession)
+        {
+            std::cerr << "Error: WebSocket session is null!" << std::endl;
+            return;
+        }
 
-    std::cout << " ================== SNAPSHOT ==================== " << std::endl;
-    std::cout
-        << beast::make_printable(buffer.data())
-        << std::endl;
-    std::cout << " ================= SNAPSHOT END ================= " << std::endl;
+        // Read WebSocket message (blocking)
+        m_ptSnapWSession->read(buffer);
+
+        // std::cout << " ================== SNAPSHOT ==================== " << std::endl;
+        // std::cout << beast::make_printable(buffer.data()) << std::endl;
+        // std::cout << " ================= SNAPSHOT END ================= " << std::endl;
+    }
+    catch (const std::exception& e)
+    {
+        // Any error reading - log and continue
+        std::cerr << "Error reading snapshot: " << e.what() << std::endl;
+    }
 }
 
 void clsWSBNConnector::UnSubscribe(std::vector<std::string>& symbols)
 {
 
+}
+
+/**
+ * @brief Continuous reader thread - Always listening to WebSocket
+ * Receives messages, parses them, and directly pushes to downstream queue
+ */
+void clsWSBNConnector::SnapshotReaderThread()
+{
+    std::cout << "SnapshotReaderThread started - continuously reading..." << std::endl;
+    
+    while(m_running)
+    {
+        try
+        {
+            beast::flat_buffer buffer;
+            ReadSnap(buffer);
+
+            if (buffer.size() > 0)
+            {
+                // Get current subscription symbol
+                std::string current_symbol;
+                {
+                    std::lock_guard<std::mutex> lock(m_symbol_mutex);
+                    current_symbol = m_current_symbol;
+                }
+                
+                // Only process if we have an active subscription
+                if (!current_symbol.empty())
+                {
+                    std::string json_str = beast::buffers_to_string(buffer.data());
+                    stMarketDataMessage msg = ParseSnapshotJson(json_str);
+                    
+                    // Set symbol from subscription context
+                    msg.symbol = current_symbol;
+
+                    if (msg.parse_success)
+                    {
+                        if(m_communicator->PushSnapshotData(msg))
+                            std::cout << "[Reader] Snapshot data enqueued for " << current_symbol << std::endl;
+                        else
+                            std::cout << " [Reader] Failed to enqueue snapshot data" << std::endl;
+                    }
+                    else
+                    {
+                        std::cout << " [Reader] Snapshot parse failed: " << msg.parse_error_msg << std::endl;
+                    }
+                }
+                else
+                {
+                    std::cout << "  [Reader] Received data but no subscription active (ignoring)" << std::endl;
+                }
+            }
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << "SnapshotReaderThread error: " << e.what() << std::endl;
+            //std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+    
+    std::cout << "SnapshotReaderThread stopped" << std::endl;
+}
+
+void clsWSBNConnector::SnapshotThreadLoop()
+{
+    while(m_running)
+    {
+        stFeedCommand cmd;
+        
+        // Check for new subscription commands (non-blocking)
+        if(m_communicator->PopSnapShotCmd(cmd))
+        {
+            std::cout << "[Command] Subscription command received for symbol: " << cmd.symbol << std::endl;
+            
+            // Update current symbol
+            {
+                std::lock_guard<std::mutex> lock(m_symbol_mutex);
+                m_current_symbol = cmd.symbol;
+            }
+            
+            // Send subscription request to WebSocket
+            SubscribeSnap(cmd.symbol);
+        }
+        else
+        {
+            // No command, sleep briefly
+            //std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
 }
