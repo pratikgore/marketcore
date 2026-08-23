@@ -10,6 +10,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include_directories(
 ${CMAKE_SOURCE_DIR}/BianceFeed/includes
+${CMAKE_SOURCE_DIR}/MarketEngine/includes
 ${CMAKE_SOURCE_DIR}/Utils/Logger
 ${CMAKE_SOURCE_DIR}/Utils/ThreadSafeQueue/includes
 ${CMAKE_SOURCE_DIR}/Utils/ThreadSafeQueue
@@ -25,9 +26,14 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 option(BUILD_UTILS "Build Utils subprojects" ON)
 option(BUILD_BIANCE_FEED "Build Binance feed executable" ON)
+option(BUILD_MARKET_ENGINE "Market Engine executable" ON)
 
 if(BUILD_UTILS)
     add_subdirectory(Utils)
+endif()
+
+if(BUILD_MARKET_ENGINE)
+    add_subdirectory(MarketEngine)
 endif()
 
 if(BUILD_BIANCE_FEED)

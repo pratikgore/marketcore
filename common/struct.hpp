@@ -35,6 +35,11 @@ enum class eAction
     TRADE
 };
 
+struct stFeedCommand
+{
+    eClientEvent event;
+    std::string symbol;
+};
 //Price level for L2 book levels (numeric version)
 struct stPriceLevel
 {

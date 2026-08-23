@@ -17,7 +17,13 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <thread>
+#include <atomic>
+#include <mutex>
 
+#include "clsFeedCommunicator.hpp"
+
+class clsFeedCommunicator;
 
 namespace beast = boost::beast;         // from <boost/beast.hpp>
 namespace http = beast::http;           // from <boost/beast/http.hpp>
@@ -30,18 +36,34 @@ class clsWSBNConnector
 {
 
     public:
-        clsWSBNConnector();
+        clsWSBNConnector(clsFeedCommunicator* communicator);
         ~clsWSBNConnector();
+
+        void Init();
+        void Stop();
 
         long CreateSessionDepth();
         void SubscribeDepth(std::string & symbols);
         long CreateSessionSnap();
         void SubscribeSnap(std::string & symbols);
-        void ReadSnap();
+        void ReadSnap(beast::flat_buffer& buffer);
         void UnSubscribe(std::vector<std::string>& symbols);
         void ReadFeed();
 
     private:
+
+        void SnapshotThreadLoop();
+        void SnapshotReaderThread();  // Separate thread for continuous reading
+        
+        std::thread m_SnapThread;
+        std::thread m_SnapReaderThread;
+        std::atomic<bool> m_running = false; //used for snap / depth reader loop
+        std::atomic<bool> m_stopped = false;
+        
+        // Shared state: current subscription (protected by mutex)
+        std::string m_current_symbol;
+        std::mutex m_symbol_mutex;
+        
         std::string hostDepth {"stream.binance.com"};
         std::string port {"443"};
         std::string targetDepth {"/ws"};
@@ -59,4 +81,6 @@ class clsWSBNConnector
         std::unique_ptr<ssl::context> m_ptSnapContext;
         std::unique_ptr<tcp::resolver> m_ptSnapResolver;
         std::unique_ptr<websocket::stream<beast::ssl_stream<tcp::socket>>> m_ptSnapWSession;
+
+        clsFeedCommunicator* m_communicator;
 };
