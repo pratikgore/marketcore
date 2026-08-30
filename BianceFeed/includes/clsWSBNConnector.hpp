@@ -48,21 +48,26 @@ class clsWSBNConnector
         void SubscribeSnap(std::string & symbols);
         void ReadSnap(beast::flat_buffer& buffer);
         void UnSubscribe(std::vector<std::string>& symbols);
-        void ReadFeed();
+        void ReadFeed(beast::flat_buffer& buffer);
 
     private:
 
         void SnapshotThreadLoop();
         void SnapshotReaderThread();  // Separate thread for continuous reading
+
+        void DepthThreadLoop();
+        void DepthReaderThread();
         
         std::thread m_SnapThread;
         std::thread m_SnapReaderThread;
+
+        std::thread m_DepthThread;
+        std::thread m_DepthReaderThread;
+
         std::atomic<bool> m_running = false; //used for snap / depth reader loop
         std::atomic<bool> m_stopped = false;
+        std::atomic<uint64_t> m_nextRequestId {1};
         
-        // Shared state: current subscription (protected by mutex)
-        std::string m_current_symbol;
-        std::mutex m_symbol_mutex;
         
         std::string hostDepth {"stream.binance.com"};
         std::string port {"443"};

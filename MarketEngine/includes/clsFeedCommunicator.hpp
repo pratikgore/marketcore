@@ -22,11 +22,18 @@ public:
 
     // Commands: Engine -> Snapshot Connector
     bool PushSnapShotCmd(stFeedCommand cmd);
+    bool PushDepthCmd(stFeedCommand cmd);
+
     bool PopSnapShotCmd(stFeedCommand& cmd);
+    bool PopDepthCmd(stFeedCommand& cmd);
+
 
     // Data: Snapshot Connector -> Engine
     bool PushSnapshotData(stMarketDataMessage data);
+    bool PushDepthData(stMarketDataMessage data);
+
     bool PopSnapshotData(stMarketDataMessage& data);
+    bool PopDepthData(stMarketDataMessage& data);
 
 private:
     // Queue types
@@ -36,4 +43,8 @@ private:
     // Snapshot queues
     std::unique_ptr<CommandQueue> m_QSnpaShotCmd;    // Engine -> Connector
     std::unique_ptr<DataQueue> m_QSnapShotData;      // Connector -> Engine
+
+    //Data queues
+    std::unique_ptr<CommandQueue> m_QDataCmd;    // Engine -> Connector
+    std::unique_ptr<DataQueue> m_QDepthData;      // Connector -> Engine
 };

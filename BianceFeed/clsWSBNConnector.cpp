@@ -11,7 +11,6 @@
 clsWSBNConnector::clsWSBNConnector(clsFeedCommunicator* communicator) 
 {
     m_communicator = communicator;
-    m_current_symbol = "";  // Initialize empty subscription
 }
 clsWSBNConnector::~clsWSBNConnector()
 {
@@ -27,9 +26,11 @@ void clsWSBNConnector::Init()
     
     // Start reader thread (continuous WebSocket reads)
     m_SnapReaderThread = std::thread(&clsWSBNConnector::SnapshotReaderThread, this);
+    m_DepthReaderThread = std::thread(&clsWSBNConnector::DepthReaderThread, this);;
     
     // Start subscription thread (command handling)
     m_SnapThread = std::thread(&clsWSBNConnector::SnapshotThreadLoop, this);
+    m_DepthThread = std::thread(&clsWSBNConnector::DepthThreadLoop, this);
 }
 
 void clsWSBNConnector::Stop()
@@ -45,6 +46,11 @@ void clsWSBNConnector::Stop()
     if (m_SnapThread.joinable())
     {
         m_SnapThread.join();
+    }
+
+    if (m_DepthThread.joinable())
+    {
+        m_DepthThread.join();
     }
 
     // Cancel/close transport so blocking reads unwind without cross-thread websocket::close.
@@ -65,6 +71,11 @@ void clsWSBNConnector::Stop()
     if (m_SnapReaderThread.joinable())
     {
         m_SnapReaderThread.join();
+    }
+
+    if (m_DepthReaderThread.joinable())
+    {
+        m_DepthReaderThread.join();
     }
 }
 
@@ -112,22 +123,34 @@ long clsWSBNConnector::CreateSessionDepth()
     return SUCCESS;
 }
 
-void clsWSBNConnector::ReadFeed()
+void clsWSBNConnector::ReadFeed(beast::flat_buffer& buffer)
 {
-    std::cout << "Reading WS feed ..." <<std::endl;
+    // std::cout << "Reading WS feed ..." <<std::endl;
     // Receive messages forever
-    for (;;)
+    try
     {
-        beast::flat_buffer buffer;
-
+        if (!m_ptWSession)
+        {
+            std::cerr << "Error: WebSocket session is null!" << std::endl;
+            return;
+        }
+    
         m_ptWSession->read(buffer);
 
-        std::cout << " ================== INCR UPDATE ================= " << std::endl;
-        std::cout
-            << beast::make_printable(buffer.data())
-            << std::endl;
-        std::cout << " ================= UPDATE END =================== " << std::endl;
-        
+        // std::cout << " ================== INCR UPDATE ================= " << std::endl;
+        // std::cout
+        //     << beast::make_printable(buffer.data())
+        //     << std::endl;
+        // std::cout << " ================= UPDATE END =================== " << std::endl;
+         
+    }
+    catch (const std::exception& e)
+    {
+        // Socket cancel/close during shutdown is expected.
+        if (m_running)
+        {
+            std::cerr << "Error reading depth: " << e.what() << std::endl;
+        }
     }
 }
 
@@ -135,19 +158,39 @@ void clsWSBNConnector::SubscribeDepth(std::string & symbols)
 {
     // Build only the dynamic stream name and reuse fixed JSON fragments.
     constexpr std::string_view kPrefix = R"({"method":"SUBSCRIBE","params":[")";
-    constexpr std::string_view kSuffix = R"(@depth"],"id":1})";
+    constexpr std::string_view kMid = R"(@depth"],"id":)";
 
     std::string streamName = symbols;
     std::transform(streamName.begin(), streamName.end(), streamName.begin(),
         [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
 
+    const auto requestId = m_nextRequestId.fetch_add(1, std::memory_order_relaxed);
     std::string request;
-    request.reserve(kPrefix.size() + streamName.size() + kSuffix.size());
+    request.reserve(kPrefix.size() + streamName.size() + kMid.size() + 24);
     request.append(kPrefix);
     request.append(streamName);
-    request.append(kSuffix);
+    request.append(kMid);
+    request.append(std::to_string(requestId));
+    request.push_back('}');
 
-    m_ptWSession->write(net::buffer(request));
+    if (!m_ptWSession)
+    {
+        std::cerr << "Error: Depth WebSocket session is null!" << std::endl;
+        return;
+    }
+
+    try
+    {
+        m_ptWSession->write(net::buffer(request));
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Error writing depth subscribe request: " << e.what() << std::endl;
+        m_running = false;
+        return;
+    }
+
+    std::cout << " [Depth ] Shared request : " << request << std::endl;
 
 }
 
@@ -195,12 +238,16 @@ void clsWSBNConnector::SubscribeSnap(std::string & symbols)
     std::transform(symbolUpper.begin(), symbolUpper.end(), symbolUpper.begin(),
         [](unsigned char ch) { return static_cast<char>(std::toupper(ch)); });
 
-    constexpr std::string_view kPrefix = R"({"id":1,"method":"depth","params":{"symbol":")";
+    constexpr std::string_view kPrefix = R"({"id":)";
+    constexpr std::string_view kMid1 = R"(,"method":"depth","params":{"symbol":")";
     constexpr std::string_view kSuffix = R"(","limit":100}})";
 
+    const auto requestId = m_nextRequestId.fetch_add(1, std::memory_order_relaxed);
     std::string request;
-    request.reserve(kPrefix.size() + symbolUpper.size() + kSuffix.size());
+    request.reserve(kPrefix.size() + kMid1.size() + symbolUpper.size() + kSuffix.size() + 24);
     request.append(kPrefix);
+    request.append(std::to_string(requestId));
+    request.append(kMid1);
     request.append(symbolUpper);
     request.append(kSuffix);
 
@@ -211,7 +258,16 @@ void clsWSBNConnector::SubscribeSnap(std::string & symbols)
         std::cerr << "Error: WebSocket session is null!" << std::endl;
         return;
     }
-    m_ptSnapWSession->write(net::buffer(request));
+    try
+    {
+        m_ptSnapWSession->write(net::buffer(request));
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Error writing snapshot request: " << e.what() << std::endl;
+        m_running = false;
+        return;
+    }
 
     std::cout << "Request sent " << std::endl;
 }
@@ -235,8 +291,11 @@ void clsWSBNConnector::ReadSnap(beast::flat_buffer& buffer)
     }
     catch (const std::exception& e)
     {
-        // Any error reading - log and continue
-        std::cerr << "Error reading snapshot: " << e.what() << std::endl;
+        // Socket cancel/close during shutdown is expected.
+        if (m_running)
+        {
+            std::cerr << "Error reading snapshot: " << e.what() << std::endl;
+        }
     }
 }
 
@@ -245,10 +304,6 @@ void clsWSBNConnector::UnSubscribe(std::vector<std::string>& symbols)
 
 }
 
-/**
- * @brief Continuous reader thread - Always listening to WebSocket
- * Receives messages, parses them, and directly pushes to downstream queue
- */
 void clsWSBNConnector::SnapshotReaderThread()
 {
     std::cout << "SnapshotReaderThread started - continuously reading..." << std::endl;
@@ -261,39 +316,22 @@ void clsWSBNConnector::SnapshotReaderThread()
             ReadSnap(buffer);
 
             if (buffer.size() > 0)
-            {
-                // Get current subscription symbol
-                std::string current_symbol;
-                {
-                    std::lock_guard<std::mutex> lock(m_symbol_mutex);
-                    current_symbol = m_current_symbol;
-                }
-                
-                // Only process if we have an active subscription
-                if (!current_symbol.empty())
-                {
-                    std::string json_str = beast::buffers_to_string(buffer.data());
-                    stMarketDataMessage msg = ParseSnapshotJson(json_str);
-                    
-                    // Set symbol from subscription context
-                    msg.symbol = current_symbol;
+            {    
+                std::string json_str = beast::buffers_to_string(buffer.data());
+                stMarketDataMessage msg = ParseSnapshotJson(json_str);
 
-                    if (msg.parse_success)
-                    {
-                        if(m_communicator->PushSnapshotData(msg))
-                            std::cout << "[Reader] Snapshot data enqueued for " << current_symbol << std::endl;
-                        else
-                            std::cout << " [Reader] Failed to enqueue snapshot data" << std::endl;
-                    }
+                if (msg.parse_success)
+                {
+                    if(m_communicator->PushSnapshotData(msg))
+                        std::cout << "[Reader] Snapshot data enqueued for " << std::endl;
                     else
-                    {
-                        std::cout << " [Reader] Snapshot parse failed: " << msg.parse_error_msg << std::endl;
-                    }
+                        std::cout << " [Reader] Failed to enqueue snapshot data" << std::endl;
                 }
                 else
                 {
-                    std::cout << "  [Reader] Received data but no subscription active (ignoring)" << std::endl;
+                    std::cout << " [Reader] Snapshot parse failed: " << msg.parse_error_msg << std::endl;
                 }
+               
             }
         }
         catch (const std::exception& e)
@@ -304,6 +342,49 @@ void clsWSBNConnector::SnapshotReaderThread()
     }
     
     std::cout << "SnapshotReaderThread stopped" << std::endl;
+}
+
+void clsWSBNConnector::DepthReaderThread()
+{
+    std::cout << "DepthReaderThread started - continuously reading..." << std::endl;
+    
+    while(m_running)
+    {
+        try
+        {
+            beast::flat_buffer buffer;
+            ReadFeed(buffer);
+
+            if (buffer.size() > 0)
+            {    
+                std::string json_str = beast::buffers_to_string(buffer.data());
+                stMarketDataMessage msg = ParseDepthUpdateJson(json_str);
+
+                if (msg.parse_success)
+                {
+                    if(m_communicator->PushDepthData(msg))
+                        std::cout << "[Reader] Depth data enqueued for " << std::endl;
+                    else
+                        std::cout << " [Reader] Failed to enqueue depth data" << std::endl;
+                }
+                else
+                {
+                    if (msg.parse_error_msg != "CONTROL_ACK")
+                    {
+                        std::cout << " [Reader] depth parse failed: " << msg.parse_error_msg << std::endl;
+                    }
+                }
+               
+            }
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << "DepthReaderThread error: " << e.what() << std::endl;
+            //std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+    
+    std::cout << "DepthReaderThread stopped" << std::endl;
 }
 
 void clsWSBNConnector::SnapshotThreadLoop()
@@ -317,19 +398,47 @@ void clsWSBNConnector::SnapshotThreadLoop()
         {
             std::cout << "[Command] Subscription command received for symbol: " << cmd.symbol << std::endl;
             
-            // Update current symbol
+            switch(cmd.event)
             {
-                std::lock_guard<std::mutex> lock(m_symbol_mutex);
-                m_current_symbol = cmd.symbol;
+                case eClientEvent::SNAPSHOT:
+                    SubscribeSnap(cmd.symbol);
+                    break;
+                default:
+                    std::cout << "unhandled event" << std::endl;
             }
-            
-            // Send subscription request to WebSocket
-            SubscribeSnap(cmd.symbol);
         }
         else
         {
             // No command, sleep briefly
-            //std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+    }
+}
+
+void clsWSBNConnector::DepthThreadLoop()
+{
+    while(m_running)
+    {
+        stFeedCommand cmd;
+        
+        // Check for new subscription commands (non-blocking)
+        if(m_communicator->PopDepthCmd(cmd))
+        {
+            std::cout << "[Command] Subscription command received for symbol: " << cmd.symbol << std::endl;
+            
+            switch(cmd.event)
+            {
+                case eClientEvent::SUBSCRIBE:
+                    SubscribeDepth(cmd.symbol);
+                    break;
+                default:
+                    std::cout << "unhandled event" << std::endl;
+            }
+        }
+        else
+        {
+            // No command, sleep briefly
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
         }
     }
 }

@@ -12,7 +12,7 @@
 #include "clsFeedCommunicator.hpp"
 #include "BianceJsonParser.hpp"
 
-std::string symbol = "BNBUSDT";
+std::string symbol = "BTCUSDT";
 
 std::atomic<bool> g_stop_requested{false};
 
@@ -22,20 +22,22 @@ void HandleSignal(int)
 }
 
 // Global test symbols - can be used across multiple functions
+// Biance depth stream has limit of 5 symbol/sec
 std::vector<std::string> g_test_symbols = {
     "BTCUSDT",   // Bitcoin
     "ETHUSDT",   // Ethereum
     "BNBUSDT",   // Binance Coin
     "XRPUSDT",   // Ripple
     "ADAUSDT",   // Cardano
-    "SOLUSDT",   // Solana
-    "DOGEUSDT",  // Dogecoin
-    "LINKUSDT",  // Chainlink
-    "LTCUSDT",   // Litecoin
-    "MATICUSDT"  // Polygon
+    // "SOLUSDT",   // Solana
+    // "DOGEUSDT",  // Dogecoin
+    // "LINKUSDT",  // Chainlink
+    // "LTCUSDT",   // Litecoin
+    // "MATICUSDT"  // Polygon
 };
 
-void TestWS()
+//Single symbol websocket test snapshot
+void TestWS_1()
 {
     clsFeedCommunicator *feedCommObj = new clsFeedCommunicator;
     clsWSBNConnector obj(feedCommObj);
@@ -66,6 +68,39 @@ void TestWS()
     delete feedCommObj;
 }
 
+//Single symbol websocket test depth
+void TestWS_2()
+{
+    clsFeedCommunicator *feedCommObj = new clsFeedCommunicator;
+    clsWSBNConnector obj(feedCommObj);
+    obj.Init();
+    
+    // Send snapshot command
+    stFeedCommand st{eClientEvent::SUBSCRIBE, symbol};
+    feedCommObj->PushDepthCmd(st);
+
+    // Pop the snapshot data
+    stMarketDataMessage msg;
+    while(!g_stop_requested.load(std::memory_order_relaxed))
+    {
+        if(feedCommObj->PopDepthData(msg))
+        {
+            std::string finalpop = MessageToString(msg);
+            std::cout << "POP : " << finalpop << "\n";
+        } 
+        else
+        {
+            // std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+    }
+
+    // Optional will never hit
+    obj.Stop();
+    
+    delete feedCommObj;
+}
+
+//REST api test
 void RunREST()
 {
     
@@ -84,11 +119,8 @@ void RunREST()
     }
 }
 
-/**
- * @brief Regression test: Simulate multiple symbol subscriptions
- * Tests snapshot reading, writing, and data flow independently
- */
-void SimulateWS()
+//Muti symbol websockert test snapshot 
+void SimulateWS_1()
 {
 
     clsFeedCommunicator *feedCommObj = new clsFeedCommunicator;
@@ -96,9 +128,9 @@ void SimulateWS()
     connector.Init();
     
     std::cout << "\n";
-    std::cout << "╔════════════════════════════════════════════════╗\n";
-    std::cout << "║  REGRESSION TEST: WebSocket Snapshot Flow      ║\n";
-    std::cout << "╚════════════════════════════════════════════════╝\n";
+    std::cout << " =================================================\n";
+    std::cout << "  REGRESSION TEST: WebSocket Snapshot Flow        \n";
+    std::cout << " =================================================\n";
 
     auto subscribe = [&]()
     {
@@ -144,6 +176,64 @@ void SimulateWS()
     connector.Stop();
 }
 
+//Muti symbol websockert test depth 
+void SimulateWS_2()
+{
+
+    clsFeedCommunicator *feedCommObj = new clsFeedCommunicator;
+    clsWSBNConnector connector(feedCommObj);
+    connector.Init();
+    
+    std::cout << "\n";
+    std::cout << " =================================================\n";
+    std::cout << "  REGRESSION TEST: WebSocket Depth Flow        \n";
+    std::cout << " =================================================\n";
+
+    auto subscribe = [&]()
+    {
+        stFeedCommand cmd ;
+        cmd.event = eClientEvent::SUBSCRIBE;
+
+        for(auto x : g_test_symbols)
+        {
+            cmd.symbol = x;
+            feedCommObj->PushDepthCmd(cmd);
+            
+            std::cout << "Subscribing : " << cmd.symbol << std::endl;
+            // Keep subscribe control traffic under exchange websocket limits.
+            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        }
+    };
+
+    auto fethSnapData = [&]()
+    {
+        //Practically should run infinitely, but for test purose we will close after 10 seconds 
+
+        while(!g_stop_requested.load(std::memory_order_relaxed))
+        {
+            // std::this_thread::sleep_for(std::chrono::seconds(10));
+            stMarketDataMessage msg;
+            if(feedCommObj->PopDepthData(msg))
+            {
+                std::string finalpop = MessageToString(msg);
+
+                std::cout << "POP : " << finalpop << "\n";
+            } 
+            else
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(150));
+            }
+        }
+    };
+
+    std::thread t1(subscribe);
+    std::thread t2(fethSnapData);
+
+    t1.join();
+    t2.join();
+    // Cleanup
+    connector.Stop();
+}
 int main()
 {
     std::signal(SIGINT, HandleSignal);
@@ -156,16 +246,24 @@ int main()
     // }
 
     // ============= Run mutiple symbol snapshot test =========== 
-    SimulateWS();
+    std::thread t1(SimulateWS_1);
+
+    // ============= Run mutiple symbol depth test =========== 
+    std::thread t2(SimulateWS_2);
 
     // ============= Run single symbol snapshot test ============
-    // TestWS();
+    // TestWS_1();
+
+    //============= Run single symbol depth test ============
+    // TestWS_2();
+
 
     //Run REST api test
     // std::thread t2 (RunREST);
 
-    // t1.join();
-    // t2.join();
+    t1.join();
+    t2.join();
+
 
     return 0;
 }

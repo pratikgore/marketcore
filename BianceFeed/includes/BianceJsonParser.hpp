@@ -107,6 +107,21 @@ inline stMarketDataMessage ParseDepthUpdateJson(const std::string& json_str)
     try {
         json j = json::parse(json_str);
 
+        // Binance can send subscribe ACK/control payloads like:
+        // {"result":null,"id":1}
+        // These are not market-data updates.
+        if (j.contains("result") && j.contains("id")) {
+            msg.parse_success = false;
+            msg.parse_error_msg = "CONTROL_ACK";
+            return msg;
+        }
+
+        // Combined stream format wraps event under "data":
+        // {"stream":"btcusdt@depth","data":{...depthUpdate...}}
+        if (j.contains("data") && j["data"].is_object()) {
+            j = j["data"];
+        }
+
         // Extract symbol (s field)
         if (j.contains("s")) {
             msg.symbol = j["s"].get<std::string>();
