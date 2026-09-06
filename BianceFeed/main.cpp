@@ -11,6 +11,9 @@
 #include "clsWSBNConnector.hpp"
 #include "clsFeedCommunicator.hpp"
 #include "BianceJsonParser.hpp"
+#include "Logging.hpp"
+
+#define LOG_TAG "BIANCEFEED"
 
 std::string symbol = "BTCUSDT";
 
@@ -19,6 +22,7 @@ std::atomic<bool> g_stop_requested{false};
 void HandleSignal(int)
 {
     g_stop_requested.store(true, std::memory_order_relaxed);
+    MC_LOG(LOG_TAG) << "STOPPING BIANCE FEED ...." << std::endl;
 }
 
 // Global test symbols - can be used across multiple functions
@@ -54,7 +58,7 @@ void TestWS_1()
         if(feedCommObj->PopSnapshotData(msg))
         {
             std::string finalpop = MessageToString(msg);
-            std::cout << "POP : " << finalpop << "\n";
+            MC_LOG(LOG_TAG) << "POP : " << finalpop << "\n";
         } 
         else
         {
@@ -86,7 +90,7 @@ void TestWS_2()
         if(feedCommObj->PopDepthData(msg))
         {
             std::string finalpop = MessageToString(msg);
-            std::cout << "POP : " << finalpop << "\n";
+            MC_LOG(LOG_TAG) << "POP : " << finalpop << "\n";
         } 
         else
         {
@@ -111,9 +115,9 @@ void RunREST()
     {
         std::string response = objConnect.FetchSnapShot(symbol);
 
-        std::cout << "================ PRITING SNAPSHOT ================ " << std::endl;
-        std::cout << response << "\n";
-        std::cout << " =============== SNAPSHOT END ==================== " << std::endl;
+        MC_LOG(LOG_TAG) << "================ PRITING SNAPSHOT ================ " << std::endl;
+        MC_LOG(LOG_TAG) << response << "\n";
+        MC_LOG(LOG_TAG) << " =============== SNAPSHOT END ==================== " << std::endl;
 
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
@@ -127,10 +131,10 @@ void SimulateWS_1()
     clsWSBNConnector connector(feedCommObj);
     connector.Init();
     
-    std::cout << "\n";
-    std::cout << " =================================================\n";
-    std::cout << "  REGRESSION TEST: WebSocket Snapshot Flow        \n";
-    std::cout << " =================================================\n";
+    MC_LOG(LOG_TAG) << "\n";
+    MC_LOG(LOG_TAG) << " =================================================\n";
+    MC_LOG(LOG_TAG) << "  REGRESSION TEST: WebSocket Snapshot Flow        \n";
+    MC_LOG(LOG_TAG) << " =================================================\n";
 
     auto subscribe = [&]()
     {
@@ -142,7 +146,7 @@ void SimulateWS_1()
             cmd.symbol = x;
             feedCommObj->PushSnapShotCmd(cmd);
             
-            std::cout << "Subscribing : " << cmd.symbol << std::endl;
+            MC_LOG(LOG_TAG) << "Subscribing : " << cmd.symbol << std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(150));
         }
     };
@@ -158,7 +162,7 @@ void SimulateWS_1()
             if(feedCommObj->PopSnapshotData(msg))
             {
                 std::string finalpop = MessageToString(msg);
-                std::cout << "POP : " << finalpop << "\n";
+                MC_LOG(LOG_TAG) << "POP : " << finalpop << "\n";
             } 
             else
             {
@@ -184,10 +188,10 @@ void SimulateWS_2()
     clsWSBNConnector connector(feedCommObj);
     connector.Init();
     
-    std::cout << "\n";
-    std::cout << " =================================================\n";
-    std::cout << "  REGRESSION TEST: WebSocket Depth Flow        \n";
-    std::cout << " =================================================\n";
+    MC_LOG(LOG_TAG) << "\n";
+    MC_LOG(LOG_TAG) << " =================================================\n";
+    MC_LOG(LOG_TAG) << "  REGRESSION TEST: WebSocket Depth Flow        \n";
+    MC_LOG(LOG_TAG) << " =================================================\n";
 
     auto subscribe = [&]()
     {
@@ -199,7 +203,7 @@ void SimulateWS_2()
             cmd.symbol = x;
             feedCommObj->PushDepthCmd(cmd);
             
-            std::cout << "Subscribing : " << cmd.symbol << std::endl;
+            MC_LOG(LOG_TAG) << "Subscribing : " << cmd.symbol << std::endl;
             // Keep subscribe control traffic under exchange websocket limits.
             std::this_thread::sleep_for(std::chrono::milliseconds(150));
         }
@@ -217,7 +221,7 @@ void SimulateWS_2()
             {
                 std::string finalpop = MessageToString(msg);
 
-                std::cout << "POP : " << finalpop << "\n";
+                MC_LOG(LOG_TAG) << "POP : " << finalpop << "\n";
             } 
             else
             {

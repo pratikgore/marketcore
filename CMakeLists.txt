@@ -27,6 +27,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 option(BUILD_UTILS "Build Utils subprojects" ON)
 option(BUILD_BIANCE_FEED "Build Binance feed executable" ON)
 option(BUILD_MARKET_ENGINE "Market Engine executable" ON)
+option(MC_ENABLE_LOGGING "Enable [TAG]-prefixed console logging (see common/Logging.hpp)" ON)
 
 if(BUILD_UTILS)
     add_subdirectory(Utils)

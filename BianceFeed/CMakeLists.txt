@@ -30,6 +30,7 @@ target_compile_options(biance_adapt_exe PRIVATE
     $<$<CONFIG:RelWithDebInfo>:-O2 -g>
     $<$<CONFIG:Release>:-O3>
 )
+target_compile_definitions(biance_adapt_exe PRIVATE MC_LOGGING_ENABLED=$<BOOL:${MC_ENABLE_LOGGING}>)
 
 target_link_libraries(biance_adapt_exe PRIVATE
     CURL::libcurl

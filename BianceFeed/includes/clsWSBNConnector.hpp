@@ -45,7 +45,7 @@ class clsWSBNConnector
         long CreateSessionDepth();
         void SubscribeDepth(std::string & symbols);
         long CreateSessionSnap();
-        void SubscribeSnap(std::string & symbols);
+        void SubscribeSnap(std::string & symbols, std::uint64_t requestId);
         void ReadSnap(beast::flat_buffer& buffer);
         void UnSubscribe(std::vector<std::string>& symbols);
         void ReadFeed(beast::flat_buffer& buffer);

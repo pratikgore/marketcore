@@ -1,6 +1,9 @@
 
 #include <iostream>
 #include "clsFeedCommunicator.hpp"
+#include "Logging.hpp"
+
+#define LOG_TAG "FEEDCOMM"
 
 clsFeedCommunicator::clsFeedCommunicator(size_t queue_capacity)
 {
@@ -12,7 +15,7 @@ clsFeedCommunicator::clsFeedCommunicator(size_t queue_capacity)
 
 clsFeedCommunicator::~clsFeedCommunicator()
 {
-    std::cout << "Cleaning Feed communicator" << std::endl;
+    MC_LOG(LOG_TAG) << "Cleaning Feed communicator" << std::endl;
     m_QSnapShotData.reset();
     m_QSnpaShotCmd.reset();
     m_QDepthData.reset();
@@ -22,7 +25,7 @@ clsFeedCommunicator::~clsFeedCommunicator()
 bool clsFeedCommunicator::PushSnapShotCmd(stFeedCommand cmd)
 {
     if (!m_QSnpaShotCmd->Enqueue(cmd)) {  // Fixed: removed stray semicolon
-        std::cout << "WARN: Snapshot command enqueue failed for symbol: " << cmd.symbol << std::endl;
+        MC_LOG(LOG_TAG) << "WARN: Snapshot command enqueue failed for symbol: " << cmd.symbol << std::endl;
         return false;
     }
     return true;
@@ -31,7 +34,7 @@ bool clsFeedCommunicator::PushSnapShotCmd(stFeedCommand cmd)
 bool clsFeedCommunicator::PushDepthCmd(stFeedCommand cmd)
 {
     if (!m_QDataCmd->Enqueue(cmd)) {  // Fixed: removed stray semicolon
-        std::cout << "WARN: depth command enqueue failed for symbol: " << cmd.symbol << std::endl;
+        MC_LOG(LOG_TAG) << "WARN: depth command enqueue failed for symbol: " << cmd.symbol << std::endl;
         return false;
     }
     return true;
@@ -56,7 +59,7 @@ bool clsFeedCommunicator::PopDepthCmd(stFeedCommand& cmd)
 bool clsFeedCommunicator::PushSnapshotData(stMarketDataMessage data)
 {
     if (!m_QSnapShotData->Enqueue(std::move(data))) {
-        std::cout << "WARN: Snapshot data queue full, message dropped" << std::endl;
+        MC_LOG(LOG_TAG) << "WARN: Snapshot data queue full, message dropped" << std::endl;
         return false;
     }
     return true;
@@ -65,7 +68,7 @@ bool clsFeedCommunicator::PushSnapshotData(stMarketDataMessage data)
 bool clsFeedCommunicator::PushDepthData(stMarketDataMessage data)
 {
     if (!m_QDepthData->Enqueue(std::move(data))) {
-        std::cout << "WARN: Snapshot data queue full, message dropped" << std::endl;
+        MC_LOG(LOG_TAG) << "WARN: Depth data queue full, message dropped" << std::endl;
         return false;
     }
     return true;

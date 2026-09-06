@@ -1,5 +1,8 @@
 {
     "cmake.sourceDirectory": "/home/pgore/workspace/marketcore",
+    "cmake.configureSettings": {
+        "MC_ENABLE_LOGGING": true
+    },
     "git.openDiffOnClick": true,
     "diffEditor.renderSideBySide": true,
     "workbench.editor.enablePreview": false

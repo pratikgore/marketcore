@@ -31,6 +31,10 @@ inline stMarketDataMessage ParseSnapshotJson(const std::string& json_str)
     try {
         json j = json::parse(json_str);
 
+        if (j.contains("id")) {
+            msg.requestId = j["id"].get<uint64_t>();
+        }
+
         // Extract lastUpdateId from result.lastUpdateId
         if (j.contains("result") && j["result"].contains("lastUpdateId")) {
             msg.lastUpdateId = j["result"]["lastUpdateId"].get<uint64_t>();

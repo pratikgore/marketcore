@@ -1,4 +1,7 @@
 #include "clsRESTBNConnector.hpp"
+#include "Logging.hpp"
+
+#define LOG_TAG "BIANCEFEED"
 
 clsRESTBNConnector::clsRESTBNConnector()
 {
@@ -22,7 +25,7 @@ void clsRESTBNConnector::CreateSession()
     m_ptrCurl = curl_easy_init();
     if(!m_ptrCurl) 
     {
-        std::cerr << "Failed to initialize curl" << std::endl;
+        MC_LOG_ERR(LOG_TAG) << "Failed to initialize curl" << std::endl;
         throw std::runtime_error("Failed to initialize curl.");
     }
     curl_easy_setopt(m_ptrCurl, CURLOPT_WRITEFUNCTION, WriteCallback);
@@ -45,7 +48,7 @@ std::string clsRESTBNConnector::FetchSnapShot(const std::string& symbol, int lim
 
     if (res != CURLE_OK) 
     {
-        std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+        MC_LOG_ERR(LOG_TAG) << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
     }
     return m_strReadBuffer;
 }

@@ -39,6 +39,7 @@ struct stFeedCommand
 {
     eClientEvent event;
     std::string symbol;
+    std::uint64_t requestId{0}; // set by issuer, echoed back by exchange, used to resolve symbol on response
 };
 //Price level for L2 book levels (numeric version)
 struct stPriceLevel
@@ -98,6 +99,7 @@ struct stMarketDataMessage
     // Message metadata
     eMarketDataMessageType messageType;     // SNAPSHOT or INCREMENTAL_DEPTH_UPDATE
     std::string symbol;                     // e.g., "BTCUSDT"
+    std::uint64_t requestId{0};             // Echoed exchange response id; used to resolve symbol (snapshot has no symbol field)
     
     // Timestamps
     std::uint64_t receive_timestamp_ns;     // When received by feed handler (NowNs())
