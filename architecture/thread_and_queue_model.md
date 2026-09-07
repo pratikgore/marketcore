@@ -12,16 +12,16 @@ flowchart TB
         M1["Create clsFeedCommunicator, clsWSBNConnector, clsDataEngine"]
     end
 
-    subgraph CONNECTOR["clsWSBNConnector::Init() spawns 4 threads"]
-        T1["SnapshotThreadLoop\n(pop SnapshotCommandQ, call SubscribeSnap)"]
-        T2["SnapshotReaderThread\n(blocking WS read, parse, push SnapshotDataQ)"]
-        T3["DepthThreadLoop\n(pop DepthCommandQ, call SubscribeDepth)"]
-        T4["DepthReaderThread\n(blocking WS read, parse, push DepthDataQ)"]
+    subgraph CONNECTOR["clsWSBNConnector::Init spawns 4 threads"]
+        T1["SnapshotThreadLoop: pop SnapshotCommandQ, call SubscribeSnap"]
+        T2["SnapshotReaderThread: blocking WS read, parse, push SnapshotDataQ"]
+        T3["DepthThreadLoop: pop DepthCommandQ, call SubscribeDepth"]
+        T4["DepthReaderThread: blocking WS read, parse, push DepthDataQ"]
     end
 
     subgraph ENGINE["clsDataEngine - 2 threads"]
-        T5["SendDemoRequest thread (t1 in main)\n(push SNAPSHOT+SUBSCRIBE commands, throttled)"]
-        T6["Run() - main thread\n(poll SnapshotDataQ + DepthDataQ,\napply to per-symbol clsOrderBook, print)"]
+        T5["SendDemoRequest thread: push SNAPSHOT and SUBSCRIBE commands, throttled"]
+        T6["Run main thread: poll SnapshotDataQ and DepthDataQ, apply to per-symbol clsOrderBook, print"]
     end
 
     M1 --> T1
@@ -69,8 +69,12 @@ flowchart LR
     SCQ -- "PopSnapShotCmd" --> SNAPLOOP
     DCQ -- "PopDepthCmd" --> DEPTHLOOP
 
-    SNAPLOOP -- "SubscribeSnap()" --> BinanceSnapWS[("Binance ws-api.binance.com")]
-    DEPTHLOOP -- "SubscribeDepth()" --> BinanceDepthWS[("Binance stream.binance.com")]
+    BinanceSnapWS("Binance ws-api.binance.com")
+    BinanceDepthWS("Binance stream.binance.com")
+    OB["Symbol to OrderBook map"]
+
+    SNAPLOOP -- "SubscribeSnap" --> BinanceSnapWS
+    DEPTHLOOP -- "SubscribeDepth" --> BinanceDepthWS
 
     BinanceSnapWS -- "snapshot response" --> SNAPREAD
     BinanceDepthWS -- "depthUpdate" --> DEPTHREAD
@@ -81,7 +85,7 @@ flowchart LR
     SDQ -- "PopSnapshotData" --> RUN
     DDQ -- "PopDepthData" --> RUN
 
-    RUN --> OB[("map&lt;symbol, clsOrderBook&gt;")]
+    RUN --> OB
 ```
 
 **Queue rules (each is SPSC — single producer, single consumer):**
@@ -105,16 +109,16 @@ sequenceDiagram
     participant SDQ as SnapshotDataQ
     participant RUN as Run() / clsDataEngine
 
-    SDR->>SDR: requestId = m_nextRequestId++<br/>m_mpSymToRequestId[requestId] = symbol
-    SDR->>SCQ: push stFeedCommand{SNAPSHOT, symbol, requestId}
+    SDR->>SDR: assign requestId, remember requestId to symbol
+    SDR->>SCQ: push SNAPSHOT command with symbol and requestId
     SCQ->>SNAPLOOP: pop cmd
-    SNAPLOOP->>BIN: {"id": requestId, "method":"depth", ...}
-    BIN-->>SNAPREAD: {"id": requestId, "result": {...no symbol...}}
-    SNAPREAD->>SNAPREAD: parse -> msg.requestId = id (symbol still empty)
-    SNAPREAD->>SDQ: push msg
-    SDQ->>RUN: pop msg
-    RUN->>RUN: symbol = m_mpSymToRequestId[msg.requestId]<br/>msg.symbol = symbol
-    RUN->>RUN: m_mporderSymToOrderBook[symbol].ApplySnapshot(msg)
+    SNAPLOOP->>BIN: send request with id equal to requestId
+    BIN-->>SNAPREAD: response with id, no symbol field
+    SNAPREAD->>SNAPREAD: parse response, requestId set, symbol still empty
+    SNAPREAD->>SDQ: push message
+    SDQ->>RUN: pop message
+    RUN->>RUN: look up symbol via requestId, set message symbol
+    RUN->>RUN: apply snapshot to order book for that symbol
 ```
 
 ## Notes / known gaps
